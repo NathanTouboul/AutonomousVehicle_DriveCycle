@@ -1,0 +1,17 @@
+{
+  "test_weight": 1432,
+
+  "a": 23.3637,
+  "b": 0.3946,
+  "c": 0.01245,
+
+  "nominal_voltage": 385,
+  "resistance": 0.08,
+  "capacity": 52,
+
+  "efficiency_transmission": 0.9,
+
+  "efficiency_motor": 0.912,
+  "standby_losses": 443
+
+}

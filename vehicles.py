@@ -1,41 +1,144 @@
 import numpy as np
 
 
-class AutonomousVehicle:
+class Vehicle:
 
-    def __init__(self):
+    def __init__(self, test_weight: float, abc: list, v0, res, cap, eff_tr, eff_mot, standby_losses, dt=0.5):
 
-        # AutonomousVehicle
-        self.test_weight = 2000     # Test weight (kg)
-        self.target_abc = [23.3637, 0.3946, 0.01245]
+        # Vehicle
+        self.test_weight = test_weight  # Test weight (kg)
+        self.target_abc = abc
 
         # Battery
-        self.v0 = 0
-        self.res = 0
+        self.voltage_nominal = v0
+        self.resistance = res
+        self.capacity = cap
+        self.soc_initial = 0.5
+
+        # Transmission
+        self.eff_tr = eff_tr
 
         # Motor
-        self.efficiency = 1
-        self.standby_losses = 0.
+        self.eff_mot = eff_mot
+        self.standby_losses = standby_losses
 
         # Experiment
-        self.dt = 0.5
-        
+        self.dt = dt
+
+    def compute_speed_acceleration(self, vehicle_distance):
+
+        vehicle_speed = np.zeros(vehicle_distance.shape)
+        vehicle_acceleration = np.zeros(vehicle_distance.shape)
+
+        # Computing speed of the vehicle
+        for p, _ in enumerate(vehicle_distance[:-1]):
+            vehicle_speed[p + 1] = (vehicle_distance[p + 1] - vehicle_distance[p]) / self.dt
+
+        # Computing acceleration of the vehicle
+        for s, _ in enumerate(vehicle_speed[:-1]):
+            dv = vehicle_speed[s + 1] - vehicle_speed[s]
+            vehicle_acceleration[s] = dv / self.dt
+
+        return vehicle_speed, vehicle_acceleration
+
+    def get_power_wheel(self, speed, acceleration):
+
+        a, b, c = self.target_abc
+
+        # Speed conversion [mph]
+        speed_mph = 2.23694 * speed
+
+        # Road load forces [N]
+        force_road_load = (a + b * speed_mph + c * speed_mph ** 2) * 4.44822
+
+        # Modeled mass (taking into account rotational inertia)
+        modeled_mass = 1.03 * self.test_weight
+
+        # Power at the wheel
+        power_wheel = (modeled_mass * acceleration + force_road_load) * speed
+
+        return force_road_load, power_wheel
+
+    @staticmethod
+    def get_mpge(time, total_distance, power_battery):
+
+        total_distance = np.nan_to_num(total_distance)
+        power_battery = np.nan_to_num(power_battery)
+        time = np.nan_to_num(time)
+        t_end = np.max(time)
+
+        # Net power battery - conversion to equivalent gallon
+        distance = np.max(total_distance) * 0.000621371
+        power_net_consumption = (t_end / 3600) * 0.001 * np.sum(power_battery) / 33.7
+
+        return distance / power_net_consumption
+
+    def get_state_of_charge(self, power_wheel):
+
+        power_battery = np.zeros(power_wheel.shape)
+        capacity_supplied = np.zeros(power_battery.shape)
+        state_of_charge = np.zeros(power_battery.shape)
+
+        # Initial State of Charge
+        state_of_charge[0] = self.soc_initial
+
+        efficiency_drivetrain = self.eff_tr * self.eff_mot
+
+        for t, p_w in enumerate(power_wheel):
+
+            if p_w >= 0:
+                power_battery[t] = (1 / efficiency_drivetrain) * p_w + self.standby_losses
+            else:
+                power_battery[t] = efficiency_drivetrain * p_w + self.standby_losses
+
+            # Battery current (A)
+            if self.voltage_nominal ** 2 - 4 * self.resistance * power_battery[t] >= 0:
+                battery_current = (self.voltage_nominal - np.sqrt(self.voltage_nominal ** 2 - 4 *
+                                                                  self.resistance * power_battery[t])) / (2 * self.resistance)
+            else:
+                # Keeping the previous value
+                battery_current = 3600 * capacity_supplied[t - 1] / self.dt
+
+            # Capacity supplied (Ah)
+            capacity_supplied[t] = battery_current * self.dt / 3600
+
+            # State of charge (%)
+            if t > 0:
+                state_of_charge[t] = state_of_charge[t - 1] - capacity_supplied[t] / self.capacity
+
+        return power_battery, state_of_charge
+
+
+class AutonomousVehicle(Vehicle):
+
+    def __init__(self, test_weight: float, abc: list, v0, res, cap, efficiency, standby_losses, dt=0.5):
+
+        super().__init__(test_weight, abc, v0, res, cap, efficiency, standby_losses, dt)
+
         # Space and time gaps
-        self.gap_target, self.gap_min = 5., 1  # meters
+        self.gap_target, self.gap_min = 5., 1.  # meters
         self.headway_target, self.headway_min = 5., 1.  # seconds
         
         # Acceleration min and max
         self.acceleration_min, self.acceleration_max = -3, 3.     # m.s^2
         
-    def control_drive_cycle(self, lead_vehicle_distance, kp=1, kd=1):
+    def control_drive_cycle(self, lead_vehicle_distance, kp=1, kd=1, df=None):
 
         # Perfect access to the position of the lead vehicle (perfect range sensor)
         # Computation of speed and acceleration of the lead
 
-        lead_vehicle_speed, lead_vehicle_acceleration = self.compute_speed_acceleration(lead_vehicle_distance)
+        if df is None:
+            lead_vehicle_speed, lead_vehicle_acceleration = self.compute_speed_acceleration(lead_vehicle_distance)
+        else:
+            lead_vehicle_speed = df[df.columns[1]].values
+            lead_vehicle_acceleration = df[df.columns[2]].values
 
         # Initializing the speed of the autonomous vehicle
         following_speed = np.zeros(lead_vehicle_distance.shape)
+
+        # Initializing the acceleration of the autonomous vehicle
+
+        following_acceleration = np.zeros(lead_vehicle_distance.shape)
 
         # Initializing gap between vehicle
         gap_vehicles = np.zeros(lead_vehicle_speed.shape)
@@ -64,19 +167,28 @@ class AutonomousVehicle:
             if following_speed[s + 1] - following_speed[s] < - 0.5 * self.acceleration_max * self.dt:
                 following_speed[s + 1] = following_speed[s] - 0.5 * self.acceleration_max * self.dt
 
-            elif following_speed[s + 1] - following_speed[s] > - 0.5 * self.acceleration_max * self.dt:
+            elif following_speed[s + 1] - following_speed[s] > self.acceleration_max * self.dt:
                 following_speed[s + 1] = following_speed[s] + 0.5 * self.acceleration_max * self.dt
+
+            # Computing acceleration
+            dv = following_speed[s + 1] - following_speed[s]
+            following_acceleration[s] = dv / self.dt
 
             e_prev = e
 
-        return following_speed, gap_vehicles
+        return following_speed, following_acceleration, gap_vehicles
 
-    def adaptive_cruise_control_drive_cycle(self, lead_distance, headway=False):
+    def adaptive_cruise_control_drive_cycle(self, lead_distance, headway=False, df=None):
         # We can only use the distance between the vehicles up to the current time
         # We impose the distance target
 
         # Lead speed and acceleration
-        lead_speed, lead_acceleration = self.compute_speed_acceleration(lead_distance)
+        # if df is None, we don't have access to true speed --> need to recalculate
+        if df is None:
+            lead_speed, lead_acceleration = self.compute_speed_acceleration(lead_distance)
+        else:
+            lead_speed = df[df.columns[1]].values
+            lead_acceleration = df[df.columns[2]].values
 
         # Initializing gap between vehicle
         gap = np.zeros(lead_speed.shape)
@@ -101,7 +213,8 @@ class AutonomousVehicle:
 
                 # Acceleration needed to reach the target gap
                 acceleration_target = ((gap[d] + (lead_speed[d] - follow_speed[d]) * self.dt) *
-                                       self.headway_target - follow_speed[d]) / (1 + (self.dt ** 2) * self.headway_target)
+                                       self.headway_target - follow_speed[d]) / (1 + (self.dt ** 2) *
+                                                                                 self.headway_target)
 
                 # Computing next acceleration
                 if gap[d] < self.gap_min:
@@ -140,7 +253,6 @@ class AutonomousVehicle:
                     follow_acceleration[d + 1] = self.bound_acceleration(acceleration_target, self.acceleration_max,
                                                                          self.acceleration_min)
 
-
                 # Computing speed
                 next_follow_speed = follow_speed[d] + follow_acceleration[d + 1] * self.dt
                 follow_speed[d + 1] = next_follow_speed
@@ -154,37 +266,6 @@ class AutonomousVehicle:
                 gap[d + 1] = next_gap
 
         return follow_distance, follow_speed, follow_acceleration, gap
-
-    def get_power_wheel(self, speed, acceleration):
-
-        a, b, c = self.target_abc
-
-        # Road load forces
-        force_road_load = a + b * speed + c * speed ** 2
-
-        # Modeled mass (taking into account rotational inertia)
-        modeled_mass = 1.03 * self.test_weight
-
-        # Power at the wheel
-        power_wheel = (modeled_mass * acceleration + force_road_load) * speed
-
-        return force_road_load, power_wheel
-
-    def compute_speed_acceleration(self, lead_vehicle_distance):
-
-        lead_vehicle_speed = np.zeros(lead_vehicle_distance.shape)
-        lead_vehicle_acceleration = np.zeros(lead_vehicle_distance.shape)
-
-        # Computing speed of the leading vehicle
-        for p, _ in enumerate(lead_vehicle_distance[:-1]):
-            lead_vehicle_speed[p + 1] = (lead_vehicle_distance[p + 1] - lead_vehicle_distance[p]) / self.dt
-
-        # Computing acceleration of the leading vehicle
-        for s, _ in enumerate(lead_vehicle_speed[:-1]):
-            dv = lead_vehicle_speed[s + 1] - lead_vehicle_speed[s]
-            lead_vehicle_acceleration[s] = dv / self.dt
-
-        return lead_vehicle_speed, lead_vehicle_acceleration
 
     @staticmethod
     def bound_acceleration(x, y, z):

@@ -38,9 +38,10 @@ def plotting_speed_lead_follow(time, lead_speed, following_speed, gap_vehicles, 
     axes[0].grid()
     axes[0].legend(["Leading", "Following"], loc="upper left")
 
-    axes[1].plot(gap_vehicles)
+    axes[1].plot(gap_vehicles[:-10])
     axes[1].set_ylabel('Gap [m]')
     axes[1].set_xlabel('Time [s]')
+
     axes[1].grid()
 
     plt.show(block=BLOCK)
@@ -78,8 +79,53 @@ def plotting_acceleration_decisions(accelerations, title):
     plt.show(block=BLOCK)
 
     plt.hist(accelerations, bins=150, density=True)
-
+    axes.set_ylabel('Decisions')
+    axes.set_xlabel('Accelerations [m/s^2]')
     filepath_figure = os.path.join(FIGURES_DIRECTORY, title)
     plt.savefig(filepath_figure)
     plt.close()
+
+
+def plotting_soc(soc: list, legend_handles, title=f"State of charge"):
+
+    fig, axes = plt.subplots(nrows=1, ncols=1)
+    fig.suptitle(title)
+    plt.grid()
+    plt.show(block=BLOCK)
+
+    alpha = 1
+    for s in soc:
+        axes.plot(s, alpha=alpha)
+        alpha -= 0.2
+
+    axes.set_ylabel('State of charge')
+    axes.set_xlabel('Time')
+    axes.set_ylim([0.25, 0.75])
+    axes.legend(legend_handles)
+
+    plt.show(block=BLOCK)
+    filepath_figure = os.path.join(FIGURES_DIRECTORY, title)
+    plt.savefig(filepath_figure)
+    plt.close()
+
+
+def plotting_comparison(speeds: list, legend_handles: list, title="Comparison drive cycle"):
+
+    fig, axes = plt.subplots(nrows=1, ncols=1, dpi=500)
+    fig.suptitle(title)
+    plt.grid()
+    plt.show(block=BLOCK)
+
+    for s, speed in enumerate(speeds):
+        axes.plot(speed, linewidth=0.4)
+
+    axes.set_ylabel('Speed')
+    axes.set_xlabel('Time')
+    axes.legend(legend_handles)
+
+    plt.show(block=BLOCK)
+    filepath_figure = os.path.join(FIGURES_DIRECTORY, title)
+    plt.savefig(filepath_figure)
+    plt.close()
+
 

@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import pandas
 import numpy as np
 import os
-
+import json
 
 DATASET_DIRECTORY = f"dataset"
 
@@ -26,8 +26,9 @@ def preprocess_dataframe(filename, filtering: str):
     if filtering == "1hz":
         for index, data in df.iterrows():
             if index < len(df) - 1:
-                new_time = (df.iloc[index + 1]['time'] + df.iloc[index]['time']) / 2
-                new_speed = (df.iloc[index + 1]['mph'] + df.iloc[index]['mph']) / 2
+                columns = df.columns
+                new_time = (df.iloc[index + 1][columns[0]] + df.iloc[index][columns[0]]) / 2
+                new_speed = (df.iloc[index + 1][columns[1]] + df.iloc[index][columns[1]]) / 2
 
                 inserting_row = [new_time, new_speed]
 
@@ -71,3 +72,24 @@ def computing_absolute_distance(df, time_step):
         lead_absolute_distance[p] = lead_pose[p] + lead_absolute_distance[p - 1]
 
     return lead_absolute_distance, lead_speed
+
+
+def parameters_vehicle(vehicle_filename):
+
+    # Defining the vehicle studied
+    vehicle_filepath = os.path.join(DATASET_DIRECTORY, vehicle_filename)
+    with open(vehicle_filepath, 'r') as vehicle_file:
+        data = vehicle_file.read()
+        vehicle_parameters = json.loads(data)
+
+    test_weight = vehicle_parameters["test_weight"]
+    abc = [vehicle_parameters["a"], vehicle_parameters["b"], vehicle_parameters["c"]]
+    nominal_voltage = vehicle_parameters["nominal_voltage"]
+    resistance = vehicle_parameters["resistance"]
+    cap = vehicle_parameters["capacity"]
+
+    eff_tr = vehicle_parameters["efficiency_transmission"]
+    eff_mot = vehicle_parameters["efficiency_motor"]
+    standby_losses = vehicle_parameters["standby_losses"]
+
+    return test_weight, abc, nominal_voltage, resistance, cap, eff_tr, eff_mot, standby_losses
