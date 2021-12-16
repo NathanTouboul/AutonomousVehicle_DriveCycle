@@ -1,23 +1,22 @@
-import time
-
-import matplotlib.pyplot as plt
-import pandas
+import pandas as pd
 import numpy as np
 import os
 import json
 
 DATASET_DIRECTORY = f"dataset"
+if DATASET_DIRECTORY not in os.listdir():
+    os.mkdir(DATASET_DIRECTORY)
 
 
-def preprocess_dataframe(filename, filtering: str):
+def preprocess_dataframe(filename: str, filtering: str):
 
     # Importing Cycles
     filepath = os.path.join(DATASET_DIRECTORY, filename)
-    df = pandas.read_csv(filepath, delimiter="\t")
+    df = pd.read_csv(filepath, delimiter="\t")
 
     # Converting speed column to numeric values
     columns = df.columns
-    df[columns[1]] = pandas.to_numeric(df[columns[1]], errors='coerce')
+    df[columns[1]] = pd.to_numeric(df[columns[1]], errors='coerce')
 
     # Adding rows to create new time and new speed
     new_df = df.copy()
@@ -32,7 +31,7 @@ def preprocess_dataframe(filename, filtering: str):
 
                 inserting_row = [new_time, new_speed]
 
-                new_df = pandas.DataFrame(np.insert(new_df.values, 2 * index + 1, inserting_row, axis=0))
+                new_df = pd.DataFrame(np.insert(new_df.values, 2 * index + 1, inserting_row, axis=0))
 
     # Conversion mph to m/s
     new_df_columns = new_df.columns
@@ -62,7 +61,7 @@ def preprocess_dataframe(filename, filtering: str):
     return new_df
 
 
-def computing_absolute_distance(df, time_step):
+def computing_absolute_distance(df: pd.DataFrame, time_step: float) -> tuple:
 
     lead_speed = np.array(df[df.columns[1]])
     lead_pose = lead_speed * time_step  # Distance from origin
@@ -74,7 +73,7 @@ def computing_absolute_distance(df, time_step):
     return lead_absolute_distance, lead_speed
 
 
-def parameters_vehicle(vehicle_filename):
+def parameters_vehicle(vehicle_filename: str) -> tuple:
 
     # Defining the vehicle studied
     vehicle_filepath = os.path.join(DATASET_DIRECTORY, vehicle_filename)

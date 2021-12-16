@@ -1,12 +1,15 @@
 import matplotlib.pyplot as plt
+import pandas as pd
 import numpy as np
 import os
 
 BLOCK = False
 FIGURES_DIRECTORY = f"figures"
+if FIGURES_DIRECTORY not in os.listdir():
+    os.mkdir(FIGURES_DIRECTORY)
 
 
-def plotting_drive_cycle(dataframe, title=f"Drive Cycle"):
+def plotting_drive_cycle(dataframe: pd.DataFrame, title=f"Drive Cycle"):
 
     # Plot Speed vs time steps
     fig, axes = plt.subplots(nrows=1, ncols=1)
@@ -18,14 +21,15 @@ def plotting_drive_cycle(dataframe, title=f"Drive Cycle"):
     axes.set_ylabel('Speed')
     axes.set_xlabel('Time')
 
-    plt.show(block=True)
+    plt.show(block=BLOCK)
 
     filepath_figure = os.path.join(FIGURES_DIRECTORY, title)
     plt.savefig(filepath_figure)
     plt.close()
 
 
-def plotting_speed_lead_follow(time, lead_speed, following_speed, gap_vehicles, title="Speed comparison"):
+def plotting_speed_lead_follow(time: np.ndarray, lead_speed: np.ndarray, following_speed: np.ndarray,
+                               gap_vehicles: np.ndarray, title="Speed comparison"):
 
     # Plot Speed and gaps
 
@@ -71,7 +75,7 @@ def plotting_powers(powers: list, title=f"Powers"):
     plt.close()
 
 
-def plotting_acceleration_decisions(accelerations, title):
+def plotting_acceleration_decisions(accelerations: np.ndarray, title="Acceleration Decisions Histogram"):
 
     fig, axes = plt.subplots(nrows=1, ncols=1)
     fig.suptitle(title)
@@ -86,7 +90,7 @@ def plotting_acceleration_decisions(accelerations, title):
     plt.close()
 
 
-def plotting_soc(soc: list, legend_handles, title=f"State of charge"):
+def plotting_soc(soc: list, legend_handles: list, title=f"State of charge"):
 
     fig, axes = plt.subplots(nrows=1, ncols=1)
     fig.suptitle(title)

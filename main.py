@@ -10,7 +10,7 @@ def main():
     df = preprocess_dataframe("HWY.txt", filtering="1hz")
 
     # Plotting drive Cycle
-    #plotting_drive_cycle(df, title=f"Drive Cycle")
+    plotting_drive_cycle(df, title=f"Drive Cycle")
 
     # Defining the parameters of the studied vehicle: Chevrolet Spark
     vehicle_filename = "spark.json5"

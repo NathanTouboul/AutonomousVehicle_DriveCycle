@@ -3,29 +3,30 @@ import numpy as np
 
 class Vehicle:
 
-    def __init__(self, test_weight: float, abc: list, v0, res, cap, eff_tr, eff_mot, standby_losses, dt=0.5):
+    def __init__(self, test_weight: float, abc: list, nominal_voltage: float, resistance: float, capacity: float, 
+                 efficiency_transmission: float, efficiency_motor: float, standby_losses, dt=0.5):
 
         # Vehicle
-        self.test_weight = test_weight  # Test weight (kg)
+        self.test_weight = test_weight
         self.target_abc = abc
 
         # Battery
-        self.voltage_nominal = v0
-        self.resistance = res
-        self.capacity = cap
+        self.voltage_nominal = nominal_voltage
+        self.resistance = resistance
+        self.capacity = capacity
         self.soc_initial = 0.5
 
         # Transmission
-        self.eff_tr = eff_tr
+        self.efficiency_transmission = efficiency_transmission
 
         # Motor
-        self.eff_mot = eff_mot
+        self.efficiency_motor = efficiency_motor
         self.standby_losses = standby_losses
 
         # Experiment
         self.dt = dt
 
-    def compute_speed_acceleration(self, vehicle_distance):
+    def compute_speed_acceleration(self, vehicle_distance: np.ndarray) -> tuple:
 
         vehicle_speed = np.zeros(vehicle_distance.shape)
         vehicle_acceleration = np.zeros(vehicle_distance.shape)
@@ -41,7 +42,7 @@ class Vehicle:
 
         return vehicle_speed, vehicle_acceleration
 
-    def get_power_wheel(self, speed, acceleration):
+    def get_power_wheel(self, speed: np.ndarray, acceleration: np.ndarray) -> tuple:
 
         a, b, c = self.target_abc
 
@@ -60,7 +61,7 @@ class Vehicle:
         return force_road_load, power_wheel
 
     @staticmethod
-    def get_mpge(time, total_distance, power_battery):
+    def get_mpge(time: np.ndarray, total_distance: np.ndarray, power_battery: np.ndarray) -> float:
 
         total_distance = np.nan_to_num(total_distance)
         power_battery = np.nan_to_num(power_battery)
@@ -73,7 +74,7 @@ class Vehicle:
 
         return distance / power_net_consumption
 
-    def get_state_of_charge(self, power_wheel):
+    def get_state_of_charge(self, power_wheel: np.ndarray) -> tuple:
 
         power_battery = np.zeros(power_wheel.shape)
         capacity_supplied = np.zeros(power_battery.shape)
@@ -82,7 +83,7 @@ class Vehicle:
         # Initial State of Charge
         state_of_charge[0] = self.soc_initial
 
-        efficiency_drivetrain = self.eff_tr * self.eff_mot
+        efficiency_drivetrain = self.efficiency_transmission * self.efficiency_motor
 
         for t, p_w in enumerate(power_wheel):
 
@@ -93,10 +94,11 @@ class Vehicle:
 
             # Battery current (A)
             if self.voltage_nominal ** 2 - 4 * self.resistance * power_battery[t] >= 0:
-                battery_current = (self.voltage_nominal - np.sqrt(self.voltage_nominal ** 2 - 4 *
-                                                                  self.resistance * power_battery[t])) / (2 * self.resistance)
+                battery_current = (self.voltage_nominal -
+                                   np.sqrt(self.voltage_nominal ** 2 - 4 * self.resistance * power_battery[t])) \
+                                  / (2 * self.resistance)
             else:
-                # Keeping the previous value
+                # Previous value is chosen
                 battery_current = 3600 * capacity_supplied[t - 1] / self.dt
 
             # Capacity supplied (Ah)
@@ -111,9 +113,11 @@ class Vehicle:
 
 class AutonomousVehicle(Vehicle):
 
-    def __init__(self, test_weight: float, abc: list, v0, res, cap, efficiency, standby_losses, dt=0.5):
+    def __init__(self, test_weight: float, abc: list, nominal_voltage: float, resistance: float, capacity: float,
+                 efficiency_transmission: float, efficiency_motor: float, standby_losses, dt=0.5):
 
-        super().__init__(test_weight, abc, v0, res, cap, efficiency, standby_losses, dt)
+        super().__init__(test_weight, abc, nominal_voltage, resistance, capacity, efficiency_transmission,
+                         efficiency_motor, standby_losses, dt)
 
         # Space and time gaps
         self.gap_target, self.gap_min = 5., 1.  # meters
@@ -122,7 +126,7 @@ class AutonomousVehicle(Vehicle):
         # Acceleration min and max
         self.acceleration_min, self.acceleration_max = -3, 3.     # m.s^2
         
-    def control_drive_cycle(self, lead_vehicle_distance, kp=1, kd=1, df=None):
+    def control_drive_cycle(self, lead_vehicle_distance: np.ndarray, kp=1, kd=1, df=None) -> tuple:
 
         # Perfect access to the position of the lead vehicle (perfect range sensor)
         # Computation of speed and acceleration of the lead
@@ -178,9 +182,7 @@ class AutonomousVehicle(Vehicle):
 
         return following_speed, following_acceleration, gap_vehicles
 
-    def adaptive_cruise_control_drive_cycle(self, lead_distance, headway=False, df=None):
-        # We can only use the distance between the vehicles up to the current time
-        # We impose the distance target
+    def adaptive_cruise_control_drive_cycle(self, lead_distance: np.ndarray, headway=False, df=None) -> tuple:
 
         # Lead speed and acceleration
         # if df is None, we don't have access to true speed --> need to recalculate
@@ -268,5 +270,5 @@ class AutonomousVehicle(Vehicle):
         return follow_distance, follow_speed, follow_acceleration, gap
 
     @staticmethod
-    def bound_acceleration(x, y, z):
+    def bound_acceleration(x: float, y: float, z: float):
         return np.maximum((np.minimum(x, y)), z)
