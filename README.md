@@ -22,8 +22,8 @@ Two type of controls:
 
 Simple PID Control of the gap between lead and following vehicles, with thresholds on accelerations.
 
-![Image Caption](figures/Classical Cruise Control.png)
-![Image Caption](figures/Acceleration inputs CCC.png)
+![Image Caption](figures/Classical%20Cruise%20Control.png)
+![Image Caption](figures/Acceleration%20inputs%20CCC.png)
 
 Results:
 - Transitory dynamics on the target gap between 2 vehicles
@@ -37,8 +37,8 @@ Results:
 More "State of the art" way of creating the AV drive cycle, implementing one of the method of Adaptive Cruise Control in [2]
 
 
-![Image Caption](figures/Adaptive Cruise Control considering Headway.png)
-![Image Caption](figures/Acceleration inputs ACC.png)
+![Image Caption](figures/Adaptive%20Cruise%20Control%20considering%20headway.png)
+![Image Caption](figures/Acceleration%20inputs%20ACC.png)
 
 Results:
 - Smoother accelerations inputs
