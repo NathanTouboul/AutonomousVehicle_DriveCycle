@@ -2,7 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/.idea/AutonomousDriveCycle.iml" filepath="$PROJECT_DIR$/.idea/AutonomousDriveCycle.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/autonomous_drive_cycle.iml" filepath="$PROJECT_DIR$/.idea/autonomous_drive_cycle.iml" />
     </modules>
   </component>
 </project>
